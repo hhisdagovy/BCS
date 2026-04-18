@@ -336,8 +336,17 @@ def parse_signal_message(text):
     Returns a dict ready to insert, or None if parsing fails.
     """
     try:
-        # Matches: TSLA Call Momentum Signal, SPY Put Reversal Signal, etc.
-        stock   = re.search(r'(\w+)\s+(?:Call|Put|Buy|Sell)\s+\w+\s+Signal', text)
+        # Matches signal titles like:
+        # "🚨 TSLA Call Momentum Signal"
+        # "🚨 TSLA Put Reversal Bounce Signal"
+        # "🚨 TSLA Call Reversal Confirmed Signal"
+        # i.e., allow one-or-more words between direction and "Signal".
+        title_line = (text or '').strip().splitlines()[0] if (text or '').strip() else ''
+        stock_match = re.search(
+            r'(?:^|\s)🚨?\s*([A-Z]{1,6})\s+(Call|Put|Buy|Sell)\s+.+?\s+Signal\b',
+            title_line,
+            re.IGNORECASE,
+        )
         price   = re.search(r'Price:\s*\$?([\d.]+)', text)
         vwap    = re.search(r'VWAP:\s*\$?([\d.]+)', text)
         mfi     = re.search(r'MFI:\s*([\d.]+)', text)
@@ -347,7 +356,7 @@ def parse_signal_message(text):
         volume  = re.search(r'Volume:\s*([\d]+)', text)
         exp     = re.search(r'Exp:\s*(\S+)', text)
 
-        if not all([stock, price, vwap, mfi, cp, strike, premium, exp]):
+        if not all([stock_match, price, vwap, mfi, cp, strike, premium, exp]):
             return None
 
         contract_type = cp.group(1).strip()
@@ -357,7 +366,7 @@ def parse_signal_message(text):
             contract_type = 'Put'
 
         return {
-            'stock':         stock.group(1).upper(),
+            'stock':         stock_match.group(1).upper(),
             'price':         float(price.group(1)),
             'vwap':          float(vwap.group(1)),
             'mfi':           float(mfi.group(1)),
